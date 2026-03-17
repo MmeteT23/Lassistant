@@ -548,9 +548,10 @@ export default function App() {
         const data = await response.json();
         setMessages(data.messages);
         setUploadedFiles(data.uploadedFiles);
-        if (data.manualKey) {
+        if (data.manualKey && data.manualKey.trim().length > 10) {
           setManualKey(data.manualKey);
           (window as any).MANUAL_GEMINI_API_KEY = data.manualKey;
+          localStorage.setItem('CELEBI_GEMINI_API_KEY', data.manualKey);
         }
         setMessages(prev => [...prev, { role: 'assistant', content: '✅ Veriler buluttan başarıyla yüklendi.' }]);
       }

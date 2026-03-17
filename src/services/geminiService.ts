@@ -32,25 +32,30 @@ KRİTİK KURALLAR:
 
 export class GeminiService {
   async chat(message: string, context: string = "", files: { data: string, mimeType: string }[] = [], history: { role: 'user' | 'assistant', content: string }[] = []) {
-    const apiKey = (window as any).MANUAL_GEMINI_API_KEY || 
-                   localStorage.getItem('CELEBI_GEMINI_API_KEY') || 
-                   import.meta.env.VITE_GEMINI_API_KEY ||
-                   process.env.GEMINI_API_KEY;
+    const apiKey = (
+      (window as any).MANUAL_GEMINI_API_KEY || 
+      localStorage.getItem('CELEBI_GEMINI_API_KEY') || 
+      (import.meta.env.VITE_GEMINI_API_KEY as string) ||
+      ""
+    ).trim();
+    
     if (!apiKey) {
       throw new Error("API anahtarı bulunamadı. Lütfen sağ üstteki ayarlardan veya anahtar seçiciden anahtarınızı tanımlayın.");
     }
     
     const ai = new GoogleGenAI({ apiKey });
-    const model = "gemini-3-flash-preview";
+    const model = "gemini-1.5-flash";
     
     const contents: any[] = [];
 
     // Add history
     history.forEach(msg => {
-      contents.push({
-        role: msg.role === 'user' ? 'user' : 'model',
-        parts: [{ text: msg.content }]
-      });
+      if (msg && msg.role && msg.content) {
+        contents.push({
+          role: msg.role === 'user' ? 'user' : 'model',
+          parts: [{ text: msg.content }]
+        });
+      }
     });
 
     // Current message parts
