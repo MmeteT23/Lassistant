@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.git
+.gitignore
+*.db
+*.log
+.env
+main.cjs
+electron/
+release/

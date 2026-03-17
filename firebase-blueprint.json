@@ -1,0 +1,31 @@
+{
+  "entities": {
+    "SyncData": {
+      "title": "SyncData",
+      "description": "Data synchronized between devices using a code",
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "Unique synchronization code"
+        },
+        "data": {
+          "type": "string",
+          "description": "JSON string of the synchronized data"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp"
+        }
+      },
+      "required": ["code", "data"]
+    }
+  },
+  "firestore": {
+    "sync_data": {
+      "schema": "SyncData",
+      "description": "Collection of synchronized data entries"
+    }
+  }
+}
