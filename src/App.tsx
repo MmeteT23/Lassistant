@@ -252,15 +252,17 @@ export default function App() {
 
   const handleSaveManualKey = () => {
     if (manualKey.trim()) {
-      const trimmedKey = manualKey.trim();
-      // We store it in a way that our service can pick it up
-      (window as any).MANUAL_GEMINI_API_KEY = trimmedKey;
-      localStorage.setItem('CELEBI_GEMINI_API_KEY', trimmedKey);
+      const keys = manualKey.split(',').map(k => k.trim()).filter(k => k.length > 10);
+      if (keys.length === 0) return;
+      
+      const primaryKey = keys[0];
+      (window as any).MANUAL_GEMINI_API_KEY = primaryKey;
+      localStorage.setItem('CELEBI_GEMINI_API_KEY', manualKey); // Store all keys
       setHasKey(true);
       setShowManualEntry(false);
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: '✅ API anahtarı başarıyla güncellendi ve kaydedildi. Artık kendi kotanızı kullanıyorsunuz. Uygulamayı kapatsanız bile bu anahtar hatırlanacaktır.' 
+        content: `✅ ${keys.length} adet API anahtarı başarıyla kaydedildi. Limit dolduğunda otomatik rotasyon yapılacaktır.` 
       }]);
     }
   };
@@ -322,18 +324,46 @@ export default function App() {
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setIsLoading(true);
 
-    try {
-      const response = await gemini.chat(userMessage, dynamicContext, imageFiles, messages);
-      setMessages(prev => [...prev, { role: 'assistant', content: response }]);
-    } catch (error: any) {
-      console.error(error);
-      const errorMsg = error.message || 'Bilinmeyen bir hata oluştu.';
-      
-      let displayMsg = `Üzgünüm, bir hata oluştu: ${errorMsg}`;
+    const keys = manualKey.split(',').map(k => k.trim()).filter(k => k.length > 10);
+    let lastError = null;
 
-      if (errorMsg.includes('403') || errorMsg.includes('Forbidden')) {
-        displayMsg = `Hata (403): Erişim reddedildi. (Detay: ${errorMsg})\n\nBu durum genellikle şunlardan kaynaklanır:\n\n1. API anahtarınızın bölge kısıtlaması.\n2. API anahtarınızın 'Gemini API' servisi için etkinleştirilmemiş olması.\n3. VPN/Ağ kısıtlamaları.\n\nLütfen anahtarınızın aktif olduğunu kontrol edin.`;
+    // Try each key in the pool if quota is reached
+    for (let i = 0; i < (keys.length || 1); i++) {
+      const currentKey = keys[i] || (window as any).MANUAL_GEMINI_API_KEY;
+      if (!currentKey) break;
+
+      try {
+        const response = await gemini.chat(userMessage, dynamicContext, imageFiles, messages, currentKey);
+        setMessages(prev => [...prev, { role: 'assistant', content: response }]);
+        setIsLoading(false);
+        return; // Success!
+      } catch (error: any) {
+        lastError = error;
+        const errorMsg = error.message || '';
+        
+        // If it's a quota error and we have more keys, try the next one
+        if ((errorMsg.includes('429') || errorMsg.includes('quota')) && i < keys.length - 1) {
+          console.warn(`Key ${i+1} hit quota, rotating to key ${i+2}...`);
+          continue;
+        }
+        
+        // If it's a different error or we're out of keys, break and show error
+        break;
+      }
+    }
+
+    // If we reach here, all keys failed or a non-quota error occurred
+    const errorMsg = lastError?.message || 'Bilinmeyen bir hata oluştu.';
+    let displayMsg = `Üzgünüm, bir hata oluştu: ${errorMsg}`;
+
+    if (errorMsg.includes('403') || errorMsg.includes('Forbidden')) {
+        if (errorMsg.includes('leaked')) {
+          displayMsg = `⚠️ KRİTİK HATA: API anahtarınız internette ifşa olduğu için Google tarafından İPTAL EDİLMİŞ.\n\nÇÖZÜM:\n1. https://aistudio.google.com/app/apikey adresinden YENİ bir anahtar oluşturun.\n2. Sol menüden 'Hafızayı Sıfırla' yapın.\n3. Yeni anahtarınızı girin.`;
+        } else {
+          displayMsg = `Hata (403): Erişim reddedildi. (Detay: ${errorMsg})\n\nBu durum genellikle şunlardan kaynaklanır:\n\n1. API anahtarınızın bölge kısıtlaması.\n2. API anahtarınızın 'Gemini API' servisi için etkinleştirilmemiş olması.\n3. VPN/Ağ kısıtlamaları.\n\nLütfen anahtarınızın aktif olduğunu kontrol edin.`;
+        }
         setHasKey(false);
+        setShowManualEntry(true);
       } else if (errorMsg.includes('429') || errorMsg.includes('quota')) {
         displayMsg = "Hata (429): Günlük kullanım kotanız doldu veya çok hızlı istek gönderdiniz. \n\nLütfen 1-2 dakika bekleyip tekrar deneyin. Sorun devam ederse Google AI Studio üzerinden yeni bir API anahtarı almayı deneyebilirsiniz.";
       } else if (errorMsg.includes('anahtar') || errorMsg.includes('key')) {

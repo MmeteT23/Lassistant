@@ -31,8 +31,9 @@ KRİTİK KURALLAR:
 `;
 
 export class GeminiService {
-  async chat(message: string, context: string = "", files: { data: string, mimeType: string }[] = [], history: { role: 'user' | 'assistant', content: string }[] = []) {
+  async chat(message: string, context: string = "", files: { data: string, mimeType: string }[] = [], history: { role: 'user' | 'assistant', content: string }[] = [], overrideKey?: string) {
     const apiKey = (
+      overrideKey ||
       (window as any).MANUAL_GEMINI_API_KEY || 
       localStorage.getItem('CELEBI_GEMINI_API_KEY') || 
       (import.meta.env.VITE_GEMINI_API_KEY as string) ||
