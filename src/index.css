@@ -14,7 +14,11 @@
 
 /* Markdown Styles */
 .markdown-body {
-  @apply leading-relaxed;
+  @apply leading-relaxed break-words overflow-x-auto;
+}
+
+.markdown-body pre {
+  @apply overflow-x-auto max-w-full;
 }
 
 .markdown-body p {

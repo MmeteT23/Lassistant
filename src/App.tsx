@@ -73,7 +73,7 @@ const MessageItem = React.memo(({ msg, themeStyles, isDark }: { msg: Message, th
     initial={{ opacity: 0, y: 20, scale: 0.95 }}
     animate={{ opacity: 1, y: 0, scale: 1 }}
     transition={{ duration: 0.4, ease: "easeOut" }}
-    className={cn("flex flex-col max-w-4xl", msg.role === 'user' ? "ml-auto items-end" : "items-start")}
+    className={cn("flex flex-col w-full max-w-full lg:max-w-4xl", msg.role === 'user' ? "ml-auto items-end" : "items-start")}
   >
     <div className="flex items-center gap-3 mb-3">
       <span className="text-[10px] font-bold uppercase tracking-widest opacity-30">
@@ -366,7 +366,8 @@ export default function App() {
             errorMsg.includes('quota') || 
             errorMsg.includes('400') || 
             errorMsg.includes('invalid') ||
-            errorMsg.includes('not valid');
+            errorMsg.includes('not valid') ||
+            errorMsg.includes('leaked');
 
           if (isRetryable && i < keyPool.length - 1) {
             console.warn(`Key ${i+1} failed (${errorMsg.substring(0, 30)}...), rotating to key ${i+2}...`);
@@ -522,21 +523,29 @@ export default function App() {
   };
 
   const handleExportData = async () => {
-    const data = {
-      messages,
-      uploadedFiles,
-      manualKey,
-      exportDate: new Date().toISOString()
-    };
-    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `celebi_ops_backup_${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    try {
+      const data = {
+        messages,
+        uploadedFiles,
+        manualKey,
+        exportDate: new Date().toISOString()
+      };
+      const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `celebi_ops_backup_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
+    } catch (err) {
+      console.error('Export failed:', err);
+      alert('Yedekleme dosyası oluşturulamadı.');
+    }
   };
 
   const handleImportData = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -588,9 +597,12 @@ export default function App() {
       });
       if (response.ok) {
         setMessages(prev => [...prev, { role: 'assistant', content: '✅ Veriler buluta başarıyla kaydedildi.' }]);
+      } else {
+        alert('Buluta kaydetme başarısız oldu.');
       }
     } catch (err) {
       console.error(err);
+      alert('Buluta kaydetme sırasında bir hata oluştu.');
     } finally {
       setIsSyncing(false);
     }
@@ -612,9 +624,12 @@ export default function App() {
           localStorage.setItem('CELEBI_GEMINI_API_KEY', data.manualKey);
         }
         setMessages(prev => [...prev, { role: 'assistant', content: '✅ Veriler buluttan başarıyla yüklendi.' }]);
+      } else {
+        alert('Veriler buluttan yüklenemedi. Kodun doğruluğunu kontrol edin.');
       }
     } catch (err) {
       console.error(err);
+      alert('Buluttan yükleme sırasında bir hata oluştu.');
     } finally {
       setIsSyncing(false);
     }
@@ -632,7 +647,7 @@ export default function App() {
   }
 
   return (
-    <div className={cn("flex h-screen overflow-hidden font-sans", themeStyles.bg, isDark ? "text-white" : "text-zinc-900")}>
+    <div className={cn("flex h-screen overflow-hidden font-sans w-full", themeStyles.bg, isDark ? "text-white" : "text-zinc-900")}>
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div 
@@ -643,7 +658,7 @@ export default function App() {
 
       {/* Sidebar */}
       <aside className={cn(
-        "fixed inset-y-0 left-0 z-50 w-80 transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 flex flex-col border-r",
+        "fixed inset-y-0 left-0 z-50 w-[85vw] max-w-80 transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 flex flex-col border-r",
         themeStyles.sidebar,
         themeStyles.border,
         isSidebarOpen ? "translate-x-0" : "-translate-x-full"
@@ -925,8 +940,8 @@ export default function App() {
                     isDark ? "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border-emerald-500/20" : "bg-zinc-900 text-white border-zinc-900"
                   )}
                 >
-                  {isSyncing ? <RefreshCw size={10} className="animate-spin" /> : <Cloud size={10} />}
-                  Kaydet
+                  {isSyncing ? <RefreshCw size={10} className="animate-spin" /> : <UploadCloud size={10} />}
+                  Buluta Kaydet
                 </button>
                 <button 
                   onClick={loadFromCloud}
@@ -937,7 +952,7 @@ export default function App() {
                   )}
                 >
                   {isSyncing ? <RefreshCw size={10} className="animate-spin" /> : <Download size={10} />}
-                  Yükle
+                  Buluttan Yükle
                 </button>
               </div>
             </div>
@@ -968,10 +983,10 @@ export default function App() {
       </aside>
 
       {/* Main Content */}
-      <main className={cn("flex-1 flex flex-col", themeStyles.main)}>
+      <main className={cn("flex-1 flex flex-col min-w-0 overflow-hidden", themeStyles.main)}>
         {/* Header */}
-        <header className={cn("h-20 border-b flex items-center justify-between px-6 lg:px-10 backdrop-blur-xl sticky top-0 z-10", themeStyles.bg, themeStyles.border)}>
-          <div className="flex items-center gap-4 lg:gap-8">
+        <header className={cn("h-16 lg:h-20 border-b flex items-center justify-between px-4 lg:px-10 backdrop-blur-xl sticky top-0 z-10", themeStyles.bg, themeStyles.border)}>
+          <div className="flex items-center gap-3 lg:gap-8">
             <button 
               onClick={() => setIsSidebarOpen(true)}
               className="lg:hidden p-2 hover:bg-white/5 rounded-lg"
@@ -985,11 +1000,11 @@ export default function App() {
             <div className="hidden sm:block w-px h-8 bg-white/10" />
             <div>
               <p className="text-[10px] font-mono uppercase opacity-30 mb-0.5">Load Office</p>
-              <p className={cn("text-sm font-bold tracking-tight", themeStyles.accent)}>LIR / LOADSHEET</p>
+              <p className={cn("text-xs sm:text-sm font-bold tracking-tight", themeStyles.accent)}>LIR / LOADSHEET</p>
             </div>
           </div>
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 lg:gap-3">
             <button
               onClick={clearChat}
               className={cn(
@@ -999,7 +1014,7 @@ export default function App() {
             >
               <Trash2 size={12} /> Temizle
             </button>
-            <div className={cn("px-3 py-1.5 rounded-full text-[10px] font-bold border", isDark ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500" : "bg-emerald-50 border-emerald-200 text-emerald-700")}>
+            <div className={cn("px-2 lg:px-3 py-1 lg:py-1.5 rounded-full text-[9px] lg:text-[10px] font-bold border", isDark ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500" : "bg-emerald-50 border-emerald-200 text-emerald-700")}>
               LIVE OPS
             </div>
           </div>
@@ -1008,7 +1023,7 @@ export default function App() {
         {/* Chat Area */}
         <div 
           ref={scrollRef}
-          className="flex-1 overflow-y-auto p-6 lg:p-10 space-y-8 lg:space-y-10 scroll-smooth"
+          className="flex-1 overflow-y-auto p-4 lg:p-10 space-y-6 lg:space-y-10 scroll-smooth"
         >
           <AnimatePresence initial={false}>
             {messages.map((msg, i) => (
@@ -1037,7 +1052,7 @@ export default function App() {
         </div>
 
         {/* Input Area */}
-        <div className={cn("p-6 lg:p-10", isDark ? "bg-gradient-to-t from-black to-transparent" : "bg-white border-t border-zinc-200")}>
+        <div className={cn("p-4 lg:p-10", isDark ? "bg-gradient-to-t from-black to-transparent" : "bg-white border-t border-zinc-200")}>
           <div className="max-w-5xl mx-auto">
             <div className="relative group">
               {isDark && <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500/20 to-blue-500/20 rounded-2xl blur opacity-0 group-focus-within:opacity-100 transition duration-500" />}
@@ -1047,7 +1062,7 @@ export default function App() {
               )}>
                 <button 
                   onClick={() => fileInputRef.current?.click()}
-                  className="p-4 lg:p-5 opacity-30 hover:opacity-100 transition-opacity"
+                  className="p-3 lg:p-5 opacity-30 hover:opacity-100 transition-opacity"
                 >
                   <Paperclip size={20} />
                 </button>
@@ -1056,13 +1071,13 @@ export default function App() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                  placeholder="Yükleme planı, LIR veya ağırlık-denge sorgulayın..."
+                  placeholder="Yükleme planı, LIR..."
                   className="flex-1 bg-transparent py-4 lg:py-5 text-sm focus:outline-none placeholder:opacity-20"
                 />
                 <button
                   onClick={handleSend}
                   disabled={!input.trim() || isLoading}
-                  className={cn("p-4 lg:p-5 transition-all disabled:opacity-10", themeStyles.accent)}
+                  className={cn("p-3 lg:p-5 transition-all disabled:opacity-10", themeStyles.accent)}
                 >
                   {isLoading ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
                 </button>
@@ -1076,10 +1091,10 @@ export default function App() {
               accept=".txt,.pdf,.docx,image/*" 
               onChange={handleFileUpload} 
             />
-            <div className="mt-4 flex flex-wrap justify-center gap-4 lg:gap-10 opacity-20">
-              <span className="text-[9px] font-mono uppercase tracking-[0.3em]">Altea FM v24.1</span>
-              <span className="text-[9px] font-mono uppercase tracking-[0.3em]">Load Engine 5.2</span>
-              <span className="text-[9px] font-mono uppercase tracking-[0.3em]">Secure Terminal AYT</span>
+            <div className="mt-4 flex flex-wrap justify-center gap-3 lg:gap-10 opacity-20">
+              <span className="text-[8px] lg:text-[9px] font-mono uppercase tracking-[0.3em]">Altea FM v24.1</span>
+              <span className="text-[8px] lg:text-[9px] font-mono uppercase tracking-[0.3em]">Load Engine 5.2</span>
+              <span className="text-[8px] lg:text-[9px] font-mono uppercase tracking-[0.3em]">Secure Terminal AYT</span>
             </div>
           </div>
         </div>
