@@ -8,7 +8,7 @@
     "dev": "tsx server.ts",
     "build": "vite build",
     "gcp-build": "npm run build",
-    "start": "node dist/server.js",
+    "start": "tsx server.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
