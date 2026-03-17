@@ -250,6 +250,19 @@ export default function App() {
     }
   };
 
+  useEffect(() => {
+    const savedKey = localStorage.getItem('CELEBI_GEMINI_API_KEY');
+    if (savedKey) {
+      setManualKey(savedKey);
+      setHasKey(true);
+      // Also set the primary key for immediate use
+      const keys = savedKey.split(',').map(k => k.trim()).filter(k => k.length > 10);
+      if (keys.length > 0) {
+        (window as any).MANUAL_GEMINI_API_KEY = keys[0];
+      }
+    }
+  }, []);
+
   const handleSaveManualKey = () => {
     if (manualKey.trim()) {
       const keys = manualKey.split(',').map(k => k.trim()).filter(k => k.length > 10);
@@ -347,9 +360,16 @@ export default function App() {
           lastError = error;
           const errorMsg = error.message || '';
           
-          // If it's a quota error and we have more keys, try the next one
-          if ((errorMsg.includes('429') || errorMsg.includes('quota')) && i < keyPool.length - 1) {
-            console.warn(`Key ${i+1} hit quota, rotating to key ${i+2}...`);
+          // If it's a quota error OR invalid key error, and we have more keys, try the next one
+          const isRetryable = 
+            errorMsg.includes('429') || 
+            errorMsg.includes('quota') || 
+            errorMsg.includes('400') || 
+            errorMsg.includes('invalid') ||
+            errorMsg.includes('not valid');
+
+          if (isRetryable && i < keyPool.length - 1) {
+            console.warn(`Key ${i+1} failed (${errorMsg.substring(0, 30)}...), rotating to key ${i+2}...`);
             continue;
           }
           
