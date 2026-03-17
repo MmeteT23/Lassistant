@@ -34,13 +34,14 @@ export class GeminiService {
   async chat(message: string, context: string = "", files: { data: string, mimeType: string }[] = [], history: { role: 'user' | 'assistant', content: string }[] = []) {
     const apiKey = (window as any).MANUAL_GEMINI_API_KEY || 
                    localStorage.getItem('CELEBI_GEMINI_API_KEY') || 
+                   import.meta.env.VITE_GEMINI_API_KEY ||
                    process.env.GEMINI_API_KEY;
     if (!apiKey) {
       throw new Error("API anahtarı bulunamadı. Lütfen sağ üstteki ayarlardan veya anahtar seçiciden anahtarınızı tanımlayın.");
     }
     
     const ai = new GoogleGenAI({ apiKey });
-    const model = "gemini-2.0-flash";
+    const model = "gemini-3-flash-preview";
     
     const contents: any[] = [];
 
