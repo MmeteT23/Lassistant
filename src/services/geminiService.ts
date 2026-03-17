@@ -44,7 +44,7 @@ export class GeminiService {
     }
     
     const ai = new GoogleGenAI({ apiKey });
-    const model = "gemini-1.5-flash";
+    const model = "gemini-3-flash-preview";
     
     const contents: any[] = [];
 
@@ -85,17 +85,21 @@ export class GeminiService {
         contents,
         config: {
           systemInstruction: SYSTEM_INSTRUCTION,
-          temperature: 0.1, // Lower temperature for more factual responses
+          temperature: 0.1,
         },
       });
 
       return response.text || "Yanıt üretilemedi.";
     } catch (error: any) {
       console.error("Gemini API Error:", error);
-      if (error.message?.includes("API_KEY_INVALID") || error.message?.includes("not found")) {
-        throw new Error("API anahtarınız geçersiz veya süresi dolmuş. Lütfen anahtarınızı yenileyin.");
+      const errorMsg = error.message || "";
+      if (errorMsg.includes("API_KEY_INVALID") || errorMsg.includes("not found")) {
+        throw new Error(`API anahtarınız geçersiz veya süresi dolmuş. (Detay: ${errorMsg})`);
       }
-      throw error;
+      if (errorMsg.includes("quota") || errorMsg.includes("429")) {
+        throw new Error(`Kullanım kotanız doldu. Lütfen biraz bekleyin veya yeni bir anahtar deneyin. (Detay: ${errorMsg})`);
+      }
+      throw new Error(`Bir hata oluştu: ${errorMsg}`);
     }
   }
 }
