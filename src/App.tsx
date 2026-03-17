@@ -324,12 +324,17 @@ export default function App() {
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setIsLoading(true);
 
-    const keys = manualKey.split(',').map(k => k.trim()).filter(k => k.length > 10);
+    // Build the key pool from all sources
+    const envKeys = (import.meta.env.VITE_GEMINI_API_KEY as string || "").split(',').map(k => k.trim()).filter(k => k.length > 10);
+    const manualKeys = (manualKey || localStorage.getItem('CELEBI_GEMINI_API_KEY') || "").split(',').map(k => k.trim()).filter(k => k.length > 10);
+    
+    // Merge and remove duplicates
+    const keyPool = Array.from(new Set([...manualKeys, ...envKeys]));
     let lastError = null;
 
     // Try each key in the pool if quota is reached
-    for (let i = 0; i < (keys.length || 1); i++) {
-      const currentKey = keys[i] || (window as any).MANUAL_GEMINI_API_KEY;
+    for (let i = 0; i < (keyPool.length || 1); i++) {
+      const currentKey = keyPool[i] || (window as any).MANUAL_GEMINI_API_KEY;
       if (!currentKey) break;
 
       try {
@@ -342,7 +347,7 @@ export default function App() {
         const errorMsg = error.message || '';
         
         // If it's a quota error and we have more keys, try the next one
-        if ((errorMsg.includes('429') || errorMsg.includes('quota')) && i < keys.length - 1) {
+        if ((errorMsg.includes('429') || errorMsg.includes('quota')) && i < keyPool.length - 1) {
           console.warn(`Key ${i+1} hit quota, rotating to key ${i+2}...`);
           continue;
         }
