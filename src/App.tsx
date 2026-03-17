@@ -332,7 +332,7 @@ export default function App() {
       let displayMsg = `Üzgünüm, bir hata oluştu: ${errorMsg}`;
 
       if (errorMsg.includes('403') || errorMsg.includes('Forbidden')) {
-        displayMsg = "Hata (403): Erişim reddedildi. Bu durum genellikle şunlardan kaynaklanır:\n1. API anahtarınızın bölge kısıtlaması (VPN kullanıyorsanız kapatmayı deneyin).\n2. API anahtarının yetkisiz olması.\n3. Mobil ağınızın erişim engeli.\n\nLütfen API anahtarınızı kontrol edin veya farklı bir ağ üzerinden deneyin.";
+        displayMsg = "Hata (403): Erişim reddedildi. Bu durum genellikle şunlardan kaynaklanır:\n\n1. API anahtarınızın bölge kısıtlaması (Google AI Studio anahtarları bazen belirli ağlarda kısıtlanabilir).\n2. API anahtarınızın 'Gemini API' servisi için etkinleştirilmemiş olması.\n3. VPN kullanıyorsanız kapatmayı, kullanmıyorsanız farklı bir ağ (mobil veri gibi) üzerinden denemeyi öneririz.\n\nLütfen [Google AI Studio](https://aistudio.google.com/app/apikey) üzerinden anahtarınızın aktif olduğunu kontrol edin.";
         setHasKey(false);
       } else if (errorMsg.includes('anahtar') || errorMsg.includes('key')) {
         setHasKey(false);
