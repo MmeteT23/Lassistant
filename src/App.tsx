@@ -324,59 +324,62 @@ export default function App() {
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setIsLoading(true);
 
-    // Build the key pool from all sources
-    const envKeys = (import.meta.env.VITE_GEMINI_API_KEY as string || "").split(',').map(k => k.trim()).filter(k => k.length > 10);
-    const manualKeys = (manualKey || localStorage.getItem('CELEBI_GEMINI_API_KEY') || "").split(',').map(k => k.trim()).filter(k => k.length > 10);
-    
-    // Merge and remove duplicates
-    const keyPool = Array.from(new Set([...manualKeys, ...envKeys]));
-    let lastError = null;
+    try {
+      // Build the key pool from all sources
+      const envKeys = (import.meta.env.VITE_GEMINI_API_KEY as string || "").split(',').map(k => k.trim()).filter(k => k.length > 10);
+      const manualKeys = (manualKey || localStorage.getItem('CELEBI_GEMINI_API_KEY') || "").split(',').map(k => k.trim()).filter(k => k.length > 10);
+      
+      // Merge and remove duplicates
+      const keyPool = Array.from(new Set([...manualKeys, ...envKeys]));
+      let lastError = null;
 
-    // Try each key in the pool if quota is reached
-    for (let i = 0; i < (keyPool.length || 1); i++) {
-      const currentKey = keyPool[i] || (window as any).MANUAL_GEMINI_API_KEY;
-      if (!currentKey) break;
+      // Try each key in the pool if quota is reached
+      for (let i = 0; i < (keyPool.length || 1); i++) {
+        const currentKey = keyPool[i] || (window as any).MANUAL_GEMINI_API_KEY;
+        if (!currentKey) break;
 
-      try {
-        const response = await gemini.chat(userMessage, dynamicContext, imageFiles, messages, currentKey);
-        setMessages(prev => [...prev, { role: 'assistant', content: response }]);
-        setIsLoading(false);
-        return; // Success!
-      } catch (error: any) {
-        lastError = error;
-        const errorMsg = error.message || '';
-        
-        // If it's a quota error and we have more keys, try the next one
-        if ((errorMsg.includes('429') || errorMsg.includes('quota')) && i < keyPool.length - 1) {
-          console.warn(`Key ${i+1} hit quota, rotating to key ${i+2}...`);
-          continue;
+        try {
+          const response = await gemini.chat(userMessage, dynamicContext, imageFiles, messages, currentKey);
+          setMessages(prev => [...prev, { role: 'assistant', content: response }]);
+          setIsLoading(false);
+          return; // Success!
+        } catch (error: any) {
+          lastError = error;
+          const errorMsg = error.message || '';
+          
+          // If it's a quota error and we have more keys, try the next one
+          if ((errorMsg.includes('429') || errorMsg.includes('quota')) && i < keyPool.length - 1) {
+            console.warn(`Key ${i+1} hit quota, rotating to key ${i+2}...`);
+            continue;
+          }
+          
+          // If it's a different error or we're out of keys, break and show error
+          break;
         }
-        
-        // If it's a different error or we're out of keys, break and show error
-        break;
-      }
-    }
-
-    // If we reach here, all keys failed or a non-quota error occurred
-    const errorMsg = lastError?.message || 'Bilinmeyen bir hata oluştu.';
-    let displayMsg = `Üzgünüm, bir hata oluştu: ${errorMsg}`;
-
-    if (errorMsg.includes('403') || errorMsg.includes('Forbidden')) {
-        if (errorMsg.includes('leaked')) {
-          displayMsg = `⚠️ KRİTİK HATA: API anahtarınız internette ifşa olduğu için Google tarafından İPTAL EDİLMİŞ.\n\nÇÖZÜM:\n1. https://aistudio.google.com/app/apikey adresinden YENİ bir anahtar oluşturun.\n2. Sol menüden 'Hafızayı Sıfırla' yapın.\n3. Yeni anahtarınızı girin.`;
-        } else {
-          displayMsg = `Hata (403): Erişim reddedildi. (Detay: ${errorMsg})\n\nBu durum genellikle şunlardan kaynaklanır:\n\n1. API anahtarınızın bölge kısıtlaması.\n2. API anahtarınızın 'Gemini API' servisi için etkinleştirilmemiş olması.\n3. VPN/Ağ kısıtlamaları.\n\nLütfen anahtarınızın aktif olduğunu kontrol edin.`;
-        }
-        setHasKey(false);
-        setShowManualEntry(true);
-      } else if (errorMsg.includes('429') || errorMsg.includes('quota')) {
-        displayMsg = "Hata (429): Günlük kullanım kotanız doldu veya çok hızlı istek gönderdiniz. \n\nLütfen 1-2 dakika bekleyip tekrar deneyin. Sorun devam ederse Google AI Studio üzerinden yeni bir API anahtarı almayı deneyebilirsiniz.";
-      } else if (errorMsg.includes('anahtar') || errorMsg.includes('key')) {
-        setHasKey(false);
-        displayMsg += "\n\nLütfen API anahtarınızı kontrol edin veya aşağıdaki butonu kullanarak anahtar seçin.";
       }
 
-      setMessages(prev => [...prev, { role: 'assistant', content: displayMsg }]);
+      // If we reach here, all keys failed or a non-quota error occurred
+      const errorMsg = lastError?.message || 'Bilinmeyen bir hata oluştu.';
+      let displayMsg = `Üzgünüm, bir hata oluştu: ${errorMsg}`;
+
+      if (errorMsg.includes('403') || errorMsg.includes('Forbidden')) {
+          if (errorMsg.includes('leaked')) {
+            displayMsg = `⚠️ KRİTİK HATA: API anahtarınız internette ifşa olduğu için Google tarafından İPTAL EDİLMİŞ.\n\nÇÖZÜM:\n1. https://aistudio.google.com/app/apikey adresinden YENİ bir anahtar oluşturun.\n2. Sol menüden 'Hafızayı Sıfırla' yapın.\n3. Yeni anahtarınızı girin.`;
+          } else {
+            displayMsg = `Hata (403): Erişim reddedildi. (Detay: ${errorMsg})\n\nBu durum genellikle şunlardan kaynaklanır:\n\n1. API anahtarınızın bölge kısıtlaması.\n2. API anahtarınızın 'Gemini API' servisi için etkinleştirilmemiş olması.\n3. VPN/Ağ kısıtlamaları.\n\nLütfen anahtarınızın aktif olduğunu kontrol edin.`;
+          }
+          setHasKey(false);
+          setShowManualEntry(true);
+        } else if (errorMsg.includes('429') || errorMsg.includes('quota')) {
+          displayMsg = "Hata (429): Günlük kullanım kotanız doldu veya çok hızlı istek gönderdiniz. \n\nLütfen 1-2 dakika bekleyip tekrar deneyin. Sorun devam ederse Google AI Studio üzerinden yeni bir API anahtarı almayı deneyebilirsiniz.";
+        } else if (errorMsg.includes('anahtar') || errorMsg.includes('key')) {
+          setHasKey(false);
+          displayMsg += "\n\nLütfen API anahtarınızı kontrol edin veya aşağıdaki butonu kullanarak anahtar seçin.";
+        }
+
+        setMessages(prev => [...prev, { role: 'assistant', content: displayMsg }]);
+    } catch (error: any) {
+      console.error("Unexpected Error:", error);
     } finally {
       setIsLoading(false);
     }
