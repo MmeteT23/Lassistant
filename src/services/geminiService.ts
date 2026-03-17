@@ -48,11 +48,15 @@ export class GeminiService {
     
     const contents: any[] = [];
 
-    // Add history
-    history.forEach(msg => {
-      if (msg && msg.role && msg.content) {
+    // Ensure alternating roles for Gemini
+    const filteredHistory = history.filter(msg => msg && msg.role && msg.content);
+    filteredHistory.forEach((msg, idx) => {
+      const role = msg.role === 'user' ? 'user' : 'model';
+      if (contents.length > 0 && contents[contents.length - 1].role === role) {
+        contents[contents.length - 1].parts[0].text += `\n${msg.content}`;
+      } else {
         contents.push({
-          role: msg.role === 'user' ? 'user' : 'model',
+          role,
           parts: [{ text: msg.content }]
         });
       }
@@ -77,7 +81,12 @@ export class GeminiService {
     
     currentParts.push({ text: message });
 
-    contents.push({ role: "user", parts: currentParts });
+    // If the last message in history is 'user', merge current parts into it
+    if (contents.length > 0 && contents[contents.length - 1].role === 'user') {
+      contents[contents.length - 1].parts.push(...currentParts);
+    } else {
+      contents.push({ role: "user", parts: currentParts });
+    }
 
     try {
       const response = await ai.models.generateContent({
@@ -99,7 +108,7 @@ export class GeminiService {
       if (errorMsg.includes("quota") || errorMsg.includes("429")) {
         throw new Error(`Kullanım kotanız doldu. Lütfen biraz bekleyin veya yeni bir anahtar deneyin. (Detay: ${errorMsg})`);
       }
-      throw new Error(`Bir hata oluştu: ${errorMsg}`);
+      throw new Error(`Bir hata oluştu: ${errorMsg} (Model: ${model})`);
     }
   }
 }
